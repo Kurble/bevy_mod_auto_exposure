@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use bevy::{
     ecs::{query::QueryState, system::lifetimeless::Read, world::World},
@@ -8,7 +8,7 @@ use bevy::{
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
         texture::{FallbackImage, Image},
-        view::{ExtractedView, ViewTarget},
+        view::{ExtractedView, ViewTarget, ViewUniforms},
     },
 };
 
@@ -22,16 +22,7 @@ pub struct MeteringNode {
     )>,
     cached_bind_groups: Mutex<Option<CachedBindGroup>>,
     histogram: Buffer,
-
-
-    average: Texture,
-    average_view: TextureView,
-    last_average: Arc<Mutex<Average>>,
-}
-
-pub struct Average {
-    buffer: Buffer,
-    value: f32,
+    average: Buffer,
 }
 
 struct CachedBindGroup {
@@ -46,51 +37,25 @@ impl MeteringNode {
     pub const IN_VIEW: &'static str = "view";
 
     pub fn new(world: &mut World) -> Self {
-        let last_average = Arc::new(Mutex::new(Average {
-            buffer: world
-                .resource::<RenderDevice>()
-                .create_buffer(&BufferDescriptor {
-                    label: Some("last average luminance"),
-                    size: 4,
-                    usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
-                    mapped_at_creation: false,
-                }),
-            value: 0.0,
-        }));
-
-        let average = world
-            .resource::<RenderDevice>()
-            .create_texture(&TextureDescriptor {
-                label: Some("average luminance"),
-                size: Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            });
-
-        let average_view = average.create_view(&Default::default());
+        let render_device = world.resource::<RenderDevice>();
+        let histogram = render_device.create_buffer(&BufferDescriptor {
+            label: Some("histogram buffer"),
+            size: 256 * 4,
+            usage: BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+        let average = render_device.create_buffer(&BufferDescriptor {
+            label: Some("average luminance"),
+            size: 4,
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
 
         Self {
             query: QueryState::new(world),
             cached_bind_groups: Mutex::new(None),
-            histogram: world
-                .resource::<RenderDevice>()
-                .create_buffer(&BufferDescriptor {
-                    label: Some("histogram buffer"),
-                    size: 256 * 4,
-                    usage: BufferUsages::STORAGE,
-                    mapped_at_creation: false,
-                }),
+            histogram,
             average,
-            average_view,
-            last_average,
         }
     }
 }
@@ -193,7 +158,7 @@ impl Node for MeteringNode {
                         },
                         BindGroupEntry {
                             binding: 4,
-                            resource: BindingResource::TextureView(&self.average_view),
+                            resource: self.average.as_entire_binding(),
                         },
                     ],
                 );
@@ -227,53 +192,20 @@ impl Node for MeteringNode {
 
         drop(compute_pass);
 
-        let average_clone = self.last_average.clone();
-        if let Ok(average) = self.last_average.lock() {
-            render_context.command_encoder().copy_texture_to_buffer(
-                ImageCopyTexture {
-                    texture: &self.average,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: TextureAspect::All,
-                },
-                ImageCopyBuffer {
-                    buffer: &average.buffer,
-                    layout: ImageDataLayout {
-                        offset: 0,
-                        bytes_per_row: None,
-                        rows_per_image: None,
-                    },
-                },
-                Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-            );
-
-            render_context.render_device().map_buffer(
-                &average.buffer.slice(..),
-                MapMode::Read,
-                move |result| {
-                    if let (Ok(()), Ok(mut average)) = (result, average_clone.lock()) {
-                        average.update();
-                    }
-                },
+        // Copy the computed exposure value to the view uniforms.
+        // If this wasn't a plugin, we could just add the STORAGE access modifier to the view uniforms buffer
+        // and write directly to it. But since this is a plugin, we have to resort to this hack.
+        if let Some(view_uniforms_buffer) = world.resource::<ViewUniforms>().uniforms.buffer() {
+            let exposure_offset = 0x230;
+            render_context.command_encoder().copy_buffer_to_buffer(
+                &self.average,
+                0,
+                &view_uniforms_buffer,
+                exposure_offset,
+                4,
             );
         }
 
         Ok(())
-    }
-}
-
-impl Average {
-    fn update(&mut self) {
-        let data = <[u8; 2]>::try_from(self.buffer.slice(..).get_mapped_range().as_ref()).unwrap();
-        self.buffer.unmap();
-
-        self.value = half::f16::from_bits(u16::from_le_bytes(data)).to_f32();
-
-        // convert from f16 to f32
-        //self.value = f16::from_bits(u16::from_le_bytes(data)).to_f32();
     }
 }
