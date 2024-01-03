@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use bevy::{
-    ecs::{query::QueryState, system::lifetimeless::Read, world::World},
+    ecs::{query::QueryState, system::lifetimeless::Read, world::{World, FromWorld}},
     render::{
         render_asset::RenderAssets,
         render_graph::*,
@@ -35,8 +35,10 @@ impl MeteringNode {
     pub const NAME: &'static str = "auto_exposure";
 
     pub const IN_VIEW: &'static str = "view";
+}
 
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for MeteringNode {
+    fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let histogram = render_device.create_buffer(&BufferDescriptor {
             label: Some("histogram buffer"),
