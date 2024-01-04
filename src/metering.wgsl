@@ -10,7 +10,6 @@ struct Params {
     correction: f32,
 }
 
-// Our two inputs, the read-only HDR color image, and the histogramBuffer
 @group(0) @binding(0)
 var<uniform> params: Params;
 @group(0) @binding(1)
@@ -20,7 +19,7 @@ var tex_mask: texture_2d<f32>;
 @group(0) @binding(3)
 var<storage, read_write> histogram: array<atomic<u32>, 256>;
 @group(0) @binding(4)
-var<storage, read_write> result: f32;
+var<storage, read_write> result: vec4<f32>;
 
 // Shared histogram buffer used for storing intermediate sums for each work group
 var<workgroup> histogram_shared: array<atomic<u32>, 256>;
@@ -62,7 +61,7 @@ fn computeHistogram(
         let binIndex = colorToBin(hdrColor, params.min_log_lum, params.inv_log_lum_range);
 
         let exposureMask = textureLoad(tex_mask, vec2<i32>(uv * vec2<f32>(textureDimensions(tex_mask))), 0).r;
-        let weightedContribution = u32(exposureMask * 8.0);
+        let weightedContribution = u32(exposureMask * 1.0);
 
         // We use an atomic add to ensure we don't write to the same bin in our
         // histogram from two different threads at the same time.
@@ -107,12 +106,15 @@ fn computeAverage(@builtin(local_invocation_index) local_index: u32) {
         let weighted_log_average = (f32(histogram_shared[0]) / max(f32(total_shared[0]) - f32(count), 1.0)) - 1.0;
 
         // Map from our histogram space to actual luminance
-        let weighted_avg_lum = exp2(((weighted_log_average / 254.0) * params.log_lum_range) + params.min_log_lum);
+        let weighted_avg_lum = ((weighted_log_average / 254.0) * params.log_lum_range) + params.min_log_lum;
 
         // The new stored value will be interpolated using the last frames value
         // to prevent sudden shifts in the exposure.
-        let lum_last_frame = textureLoad(tex_output, vec2(0, 0)).x;
-        let adapted_lum = lum_last_frame + (weighted_avg_lum - lum_last_frame) * params.delta_t;
-        result = adapted_lum;
+        let target_exposure = log2(1.2) - weighted_avg_lum;
+
+        let lum_change = target_exposure - result.x;
+        let lum_rate = min(abs(lum_change), params.delta_t);
+        let lum_delta = sign(lum_change) * lum_rate;
+        result = vec4(result.x + lum_delta, 1.0, 1.0, 1.0);
     }
 }

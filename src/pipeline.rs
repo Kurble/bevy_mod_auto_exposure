@@ -15,6 +15,7 @@ pub struct AutoExposurePipeline {
 pub struct ViewAutoExposurePipeline {
     pub histogram_pipeline: CachedComputePipelineId,
     pub mean_luminance_pipeline: CachedComputePipelineId,
+    pub state: Buffer,
     pub min: f32,
     pub max: f32,
     pub correction: f32,
@@ -89,10 +90,10 @@ impl FromWorld for AutoExposurePipeline {
                     BindGroupLayoutEntry {
                         binding: 4,
                         visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::StorageTexture {
-                            access: StorageTextureAccess::ReadWrite,
-                            format: TextureFormat::R16Float,
-                            view_dimension: TextureViewDimension::D2,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: NonZeroU64::new(16),
                         },
                         count: None,
                     },
@@ -120,29 +121,5 @@ impl SpecializedComputePipeline for AutoExposurePipeline {
             },
             push_constant_ranges: vec![],
         }
-    }
-}
-
-pub fn queue_view_auto_exposure_pipelines(
-    mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
-    mut compute_pipelines: ResMut<SpecializedComputePipelines<AutoExposurePipeline>>,
-    pipeline: Res<AutoExposurePipeline>,
-    view_targets: Query<(Entity, &super::AutoExposure)>,
-) {
-    for (entity, auto_exposure) in view_targets.iter() {
-        let histogram_pipeline =
-            compute_pipelines.specialize(&mut pipeline_cache, &pipeline, Pass::Histogram);
-        let average_pipeline =
-            compute_pipelines.specialize(&mut pipeline_cache, &pipeline, Pass::Average);
-
-        commands.entity(entity).insert(ViewAutoExposurePipeline {
-            histogram_pipeline,
-            mean_luminance_pipeline: average_pipeline,
-            min: auto_exposure.min,
-            max: auto_exposure.max,
-            correction: auto_exposure.correction,
-            metering_mask: auto_exposure.metering_mask.clone(),
-        });
     }
 }
