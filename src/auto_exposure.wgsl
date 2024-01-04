@@ -5,9 +5,11 @@ struct Params {
     min_log_lum: f32,
     inv_log_lum_range: f32,
     log_lum_range: f32,
-    num_pixels: f32,
-    delta_t: f32,
     correction: f32,
+    low_percent: u32,
+    high_percent: u32,
+    speed_up: f32,
+    speed_down: f32,
 }
 
 @group(0) @binding(0)
@@ -19,7 +21,7 @@ var tex_mask: texture_2d<f32>;
 @group(0) @binding(3)
 var<storage, read_write> histogram: array<atomic<u32>, 256>;
 @group(0) @binding(4)
-var<storage, read_write> result: vec4<f32>;
+var<storage, read_write> result: f32;
 
 // Shared histogram buffer used for storing intermediate sums for each work group
 var<workgroup> histogram_shared: array<atomic<u32>, 256>;
@@ -86,8 +88,8 @@ fn computeAverage(@builtin(local_invocation_index) local_index: u32) {
         histogram[i] = 0u;
     }
 
-    let first_index = histogram_sum * 70u / 100u;
-    let last_index = histogram_sum * 95u / 100u;
+    let first_index = histogram_sum * params.low_percent / 100u;
+    let last_index = histogram_sum * params.high_percent / 100u;
 
     var count = 0u;
     var sum = 0.0;
@@ -100,15 +102,11 @@ fn computeAverage(@builtin(local_invocation_index) local_index: u32) {
         count += bin_count;
     }
 
-    var target_exposure = 0.0;
+    var target_exposure = params.correction;
 
     if count > 0u {
-        target_exposure = log2(1.2) - sum / f32(count);
+        target_exposure += log2(1.2) - sum / f32(count);
     }
 
-    let lum_change = target_exposure - result.x;
-    let lum_rate = min(abs(lum_change), params.delta_t);
-    let lum_delta = sign(lum_change) * lum_rate;
-    result = vec4(result.x + lum_delta, 1.0, 1.0, 1.0);
-
+    result = result + clamp(target_exposure - result, -params.speed_up, params.speed_down);
 }

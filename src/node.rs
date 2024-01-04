@@ -10,16 +10,16 @@ use bevy::{
         render_resource::*,
         renderer::RenderContext,
         texture::{FallbackImage, Image},
-        view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+        view::{ExtractedView, ViewTarget, ViewUniformOffset, ViewUniforms},
     },
 };
 
 use crate::{
-    pipeline::{AutoExposureParams, AutoExposurePipeline, ViewAutoExposurePipeline},
+    pipeline::{AutoExposurePipeline, ViewAutoExposurePipeline},
     AutoExposureResources,
 };
 
-pub struct MeteringNode {
+pub struct AutoExposureNode {
     query: QueryState<(
         Read<ViewUniformOffset>,
         Read<ViewTarget>,
@@ -28,11 +28,11 @@ pub struct MeteringNode {
     )>,
 }
 
-impl MeteringNode {
+impl AutoExposureNode {
     pub const NAME: &'static str = "auto_exposure";
 }
 
-impl FromWorld for MeteringNode {
+impl FromWorld for AutoExposureNode {
     fn from_world(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
@@ -40,7 +40,7 @@ impl FromWorld for MeteringNode {
     }
 }
 
-impl Node for MeteringNode {
+impl Node for AutoExposureNode {
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -80,16 +80,7 @@ impl Node for MeteringNode {
             .unwrap_or(&fallback.d2.texture_view);
 
         let mut settings = encase::UniformBuffer::new(Vec::new());
-        settings
-            .write(&AutoExposureParams {
-                min_log_lum: auto_exposure.min,
-                inv_log_lum_range: 1.0 / (auto_exposure.max - auto_exposure.min),
-                log_lum_range: auto_exposure.max - auto_exposure.min,
-                num_pixels: (view.viewport.z * view.viewport.w) as f32,
-                delta_time: 0.05,
-                correction: auto_exposure.correction,
-            })
-            .unwrap();
+        settings.write(&auto_exposure.params).unwrap();
         let settings =
             render_context
                 .render_device()
@@ -130,7 +121,7 @@ impl Node for MeteringNode {
             render_context
                 .command_encoder()
                 .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("metering_pass"),
+                    label: Some("auto_exposure_pass"),
                 });
 
         compute_pass.set_bind_group(0, &compute_bind_group, &[]);
@@ -149,38 +140,14 @@ impl Node for MeteringNode {
         // If this wasn't a plugin, we could just add the STORAGE access modifier to the view uniforms buffer
         // and write directly to it. But since this is a plugin, we have to resort to this hack.
         if let Some(view_uniforms_buffer) = world.resource::<ViewUniforms>().uniforms.buffer() {
-            // let test =
-            //     render_context
-            //         .render_device()
-            //         .create_buffer(&BufferDescriptor {
-            //             label: None,
-            //             size: ViewUniform::min_size().get() as u64,
-            //             usage: BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
-            //             mapped_at_creation: false,
-            //         });
-            // render_context.command_encoder().copy_buffer_to_buffer(
-            //     &test,
-            //     0,
-            //     &view_uniforms_buffer,
-            //     view_uniform_offset.offset as u64,
-            //     ViewUniform::min_size().get() as u64,
-            // );
-
-            let color_grading_offset = view_uniform_offset.offset + 576;
-            // render_context.command_encoder().clear_buffer(
-            //     &view_uniforms_buffer,
-            //     view_uniform_offset.offset as u64,
-            //     Some(ViewUniform::min_size())
-            // );
+            let exposure_offset = view_uniform_offset.offset + 576;
             render_context.command_encoder().copy_buffer_to_buffer(
                 &auto_exposure.state,
                 0,
                 &view_uniforms_buffer,
-                color_grading_offset as u64,
-                16,
+                exposure_offset as u64,
+                4,
             );
-        } else {
-            panic!("View uniforms buffer not found");
         }
 
         Ok(())

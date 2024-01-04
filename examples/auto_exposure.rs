@@ -82,8 +82,7 @@ fn setup(
         AutoExposure {
             min: -16.0,
             max: 16.0,
-            correction: 0.0,
-            metering_mask: assets.load("mask.png"),
+            ..default()
         },
         CameraMarker,
     ));

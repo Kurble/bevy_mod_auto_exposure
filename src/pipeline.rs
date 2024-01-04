@@ -16,20 +16,20 @@ pub struct ViewAutoExposurePipeline {
     pub histogram_pipeline: CachedComputePipelineId,
     pub mean_luminance_pipeline: CachedComputePipelineId,
     pub state: Buffer,
-    pub min: f32,
-    pub max: f32,
-    pub correction: f32,
+    pub params: AutoExposureParams,
     pub metering_mask: Handle<Image>,
 }
 
-#[derive(ShaderType)]
+#[derive(ShaderType, Clone, Copy)]
 pub struct AutoExposureParams {
     pub min_log_lum: f32,
     pub inv_log_lum_range: f32,
     pub log_lum_range: f32,
-    pub num_pixels: f32,
-    pub delta_time: f32,
     pub correction: f32,
+    pub low_percent: u32,
+    pub high_percent: u32,
+    pub speed_up: f32,
+    pub speed_down: f32,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -93,14 +93,14 @@ impl FromWorld for AutoExposurePipeline {
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Storage { read_only: false },
                             has_dynamic_offset: false,
-                            min_binding_size: NonZeroU64::new(16),
+                            min_binding_size: NonZeroU64::new(4),
                         },
                         count: None,
                     },
                 ],
             }),
             histogram_shader: Some(
-                asset_server.load("embedded://bevy_mod_auto_exposure/metering.wgsl"),
+                asset_server.load("embedded://bevy_mod_auto_exposure/auto_exposure.wgsl"),
             ),
         }
     }

@@ -17,21 +17,34 @@ use bevy::{
     },
     utils::HashMap,
 };
-use pipeline::{AutoExposurePipeline, Pass, ViewAutoExposurePipeline};
+use pipeline::{AutoExposurePipeline, Pass, ViewAutoExposurePipeline, AutoExposureParams};
 
-use crate::node::MeteringNode;
+use crate::node::AutoExposureNode;
 
 mod node;
 mod pipeline;
 
 pub struct AutoExposurePlugin;
 
-#[derive(Component, Clone, Reflect, Default)]
+#[derive(Component, Clone, Reflect)]
 #[reflect(Component)]
 pub struct AutoExposure {
+    /// The minimum exposure value for the camera.
     pub min: f32,
+    /// The maximum exposure value for the camera.
     pub max: f32,
+    /// Global exposure correction, after metering.
     pub correction: f32,
+    /// The percentage of darkest pixels to ignore when metering.
+    pub low_percent: u32,
+    /// The percentage of brightest pixels to ignore when metering.
+    pub high_percent: u32,
+    /// The speed at which the exposure adapts from dark to bright scenes.
+    pub speed_up: f32,
+    /// The speed at which the exposure adapts from bright to dark scenes.
+    pub speed_down: f32,
+    /// The mask to apply when metering. Bright spots on the mask will contribute more to the
+    /// metering, and dark spots will contribute less.
     pub metering_mask: Handle<Image>,
 }
 
@@ -51,6 +64,21 @@ pub struct AutoExposureBuffers {
     pub buffers: HashMap<Entity, Buffer>,
 }
 
+impl Default for AutoExposure {
+    fn default() -> Self {
+        Self {
+            min: -8.0,
+            max: 8.0,
+            correction: 0.0,
+            low_percent: 60,
+            high_percent: 95,
+            speed_up: 3.0,
+            speed_down: 1.0,
+            metering_mask: default(),
+        }
+    }
+}
+
 impl ExtractComponent for AutoExposure {
     type Query = Read<Self>;
     type Filter = With<Camera>;
@@ -63,7 +91,7 @@ impl ExtractComponent for AutoExposure {
 
 impl Plugin for AutoExposurePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "src/", "metering.wgsl");
+        embedded_asset!(app, "src/", "auto_exposure.wgsl");
 
         app.register_type::<AutoExposure>();
         app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());
@@ -83,10 +111,10 @@ impl Plugin for AutoExposurePlugin {
                     queue_view_auto_exposure_pipelines.in_set(RenderSet::Queue),
                 ),
             )
-            .add_render_graph_node::<MeteringNode>(CORE_3D, node::MeteringNode::NAME)
+            .add_render_graph_node::<AutoExposureNode>(CORE_3D, node::AutoExposureNode::NAME)
             .add_render_graph_edges(
                 CORE_3D,
-                &[END_MAIN_PASS, node::MeteringNode::NAME, TONEMAPPING],
+                &[END_MAIN_PASS, node::AutoExposureNode::NAME, TONEMAPPING],
             );
     }
 
@@ -136,7 +164,7 @@ pub fn prepare_auto_exposure_buffers(
             entity,
             device.create_buffer(&BufferDescriptor {
                 label: Some("auto exposure state buffer"),
-                size: 16,
+                size: 4,
                 usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
                 mapped_at_creation: false,
             }),
@@ -154,6 +182,7 @@ pub fn queue_view_auto_exposure_pipelines(
     mut compute_pipelines: ResMut<SpecializedComputePipelines<AutoExposurePipeline>>,
     device: Res<RenderDevice>,
     pipeline: Res<AutoExposurePipeline>,
+    time: Res<Time>,
     mut buffers: ResMut<AutoExposureBuffers>,
     view_targets: Query<(Entity, &AutoExposure)>,
 ) {
@@ -172,15 +201,22 @@ pub fn queue_view_auto_exposure_pipelines(
                 .or_insert_with(|| {
                     device.create_buffer(&BufferDescriptor {
                         label: Some("auto exposure state buffer"),
-                        size: 16,
+                        size: 4,
                         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
                         mapped_at_creation: false,
                     })
                 })
                 .clone(),
-            min: auto_exposure.min,
-            max: auto_exposure.max,
-            correction: auto_exposure.correction,
+            params: AutoExposureParams {
+                min_log_lum: auto_exposure.min,
+                inv_log_lum_range: 1.0 / (auto_exposure.max - auto_exposure.min),
+                log_lum_range: auto_exposure.max - auto_exposure.min,
+                correction: auto_exposure.correction,
+                low_percent: auto_exposure.low_percent,
+                high_percent: auto_exposure.high_percent,
+                speed_up: auto_exposure.speed_up * time.delta_seconds(),
+                speed_down: auto_exposure.speed_down * time.delta_seconds(),
+            },
             metering_mask: auto_exposure.metering_mask.clone(),
         });
     }
