@@ -61,7 +61,7 @@ fn computeHistogram(
         let binIndex = colorToBin(hdrColor, params.min_log_lum, params.inv_log_lum_range);
 
         let exposureMask = textureLoad(tex_mask, vec2<i32>(uv * vec2<f32>(textureDimensions(tex_mask))), 0).r;
-        let weightedContribution = u32(exposureMask * 1.0);
+        let weightedContribution = u32(exposureMask * 8.0);
 
         // We use an atomic add to ensure we don't write to the same bin in our
         // histogram from two different threads at the same time.
@@ -77,44 +77,38 @@ fn computeHistogram(
     atomicAdd(&histogram[local_invocation_index], histogram_shared[local_invocation_index]);
 }
 
-@compute @workgroup_size(256, 1, 1)
+@compute @workgroup_size(1, 1, 1)
 fn computeAverage(@builtin(local_invocation_index) local_index: u32) {
-    // Get the count from the histogram buffer
-    let count = histogram[local_index];
-    total_shared[local_index] = count;
-    histogram_shared[local_index] = count * local_index;
-
-    storageBarrier();
-
-    // Reset the count stored in the buffer in anticipation of the next pass
-    histogram[local_index] = 0u;
-
-    // This loop will perform a weighted count of the luminance range
-    for (var cutoff = 128u; cutoff > 0u; cutoff >>= 1u) {
-        if u32(local_index) < cutoff {
-            histogram_shared[local_index] += histogram_shared[local_index + cutoff];
-            total_shared[local_index] += total_shared[local_index + cutoff];
-        }
-        workgroupBarrier();
+    var histogram_sum = 0u;
+    for (var i=0u; i<256u; i+=1u) {
+        histogram_sum += histogram[i];
+        histogram_shared[i] = histogram_sum;
+        histogram[i] = 0u;
     }
 
-    // We only need to calculate this once, so only a single thread is needed.
-    if local_index == 0u {
-        // Here we take our weighted sum and divide it by the number of pixels
-        // that had luminance greater than zero (since the index == 0, we can
-        // use countForThisBin to find the number of black pixels)
-        let weighted_log_average = (f32(histogram_shared[0]) / max(f32(total_shared[0]) - f32(count), 1.0)) - 1.0;
+    let first_index = histogram_sum * 70u / 100u;
+    let last_index = histogram_sum * 95u / 100u;
 
-        // Map from our histogram space to actual luminance
-        let weighted_avg_lum = ((weighted_log_average / 254.0) * params.log_lum_range) + params.min_log_lum;
+    var count = 0u;
+    var sum = 0.0;
+    for (var i=0u; i<256u; i+=1u) {
+        let bin_count =
+            clamp(histogram_shared[i], first_index, last_index) -
+            clamp(histogram_shared[i - 1u], first_index, last_index);
 
-        // The new stored value will be interpolated using the last frames value
-        // to prevent sudden shifts in the exposure.
-        let target_exposure = log2(1.2) - weighted_avg_lum;
-
-        let lum_change = target_exposure - result.x;
-        let lum_rate = min(abs(lum_change), params.delta_t);
-        let lum_delta = sign(lum_change) * lum_rate;
-        result = vec4(result.x + lum_delta, 1.0, 1.0, 1.0);
+        sum += f32(bin_count) * (params.min_log_lum + f32(i) / 255.0 * params.log_lum_range);
+        count += bin_count;
     }
+
+    var target_exposure = 0.0;
+
+    if count > 0u {
+        target_exposure = log2(1.2) - sum / f32(count);
+    }
+
+    let lum_change = target_exposure - result.x;
+    let lum_rate = min(abs(lum_change), params.delta_t);
+    let lum_delta = sign(lum_change) * lum_rate;
+    result = vec4(result.x + lum_delta, 1.0, 1.0, 1.0);
+
 }
