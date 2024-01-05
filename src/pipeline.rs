@@ -16,6 +16,7 @@ pub struct ViewAutoExposurePipeline {
     pub histogram_pipeline: CachedComputePipelineId,
     pub mean_luminance_pipeline: CachedComputePipelineId,
     pub state: Buffer,
+    pub compensation_curve: TextureView,
     pub params: AutoExposureParams,
     pub metering_mask: Handle<Image>,
 }
@@ -25,7 +26,6 @@ pub struct AutoExposureParams {
     pub min_log_lum: f32,
     pub inv_log_lum_range: f32,
     pub log_lum_range: f32,
-    pub correction: f32,
     pub low_percent: u32,
     pub high_percent: u32,
     pub speed_up: f32,
@@ -80,6 +80,16 @@ impl FromWorld for AutoExposurePipeline {
                     BindGroupLayoutEntry {
                         binding: 3,
                         visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Float { filterable: false },
+                            view_dimension: TextureViewDimension::D1,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: ShaderStages::COMPUTE,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Storage { read_only: false },
                             has_dynamic_offset: false,
@@ -88,7 +98,7 @@ impl FromWorld for AutoExposurePipeline {
                         count: None,
                     },
                     BindGroupLayoutEntry {
-                        binding: 4,
+                        binding: 5,
                         visibility: ShaderStages::COMPUTE,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Storage { read_only: false },

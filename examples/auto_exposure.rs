@@ -1,4 +1,7 @@
-use bevy::{prelude::*, window::CursorGrabMode, render::view::ColorGrading, core_pipeline::clear_color::ClearColorConfig, input::mouse::MouseMotion};
+use bevy::{
+    core_pipeline::clear_color::ClearColorConfig, input::mouse::MouseMotion, math::vec2,
+    prelude::*, window::CursorGrabMode,
+};
 use bevy_mod_auto_exposure::{AutoExposure, AutoExposurePlugin};
 
 #[derive(Component)]
@@ -9,13 +12,12 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(AutoExposurePlugin)
         .add_systems(Startup, setup)
-        .add_systems(Update, grab_mouse)
+        .add_systems(Update, rotate_camera)
         .run();
 }
 
 fn setup(
     mut commands: Commands,
-    assets: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -42,7 +44,13 @@ fn setup(
     });
 
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane { size: 10.0, subdivisions: 1 }.into()),
+        mesh: meshes.add(
+            shape::Plane {
+                size: 10.0,
+                subdivisions: 1,
+            }
+            .into(),
+        ),
         material: materials.add(StandardMaterial {
             base_color: Color::rgb(0.2, 0.8, 0.2),
             ..default()
@@ -69,11 +77,7 @@ fn setup(
                 ..default()
             },
             camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(Color::rgb(0.0, 0.0, 0.0)),
-                ..default()
-            },
-            color_grading: ColorGrading {
-                exposure: -223465.0,
+                clear_color: ClearColorConfig::Custom(Color::rgb(0.1, 0.0, 0.0)),
                 ..default()
             },
             transform: Transform::from_xyz(0.0, 0.0, 6.0),
@@ -82,13 +86,14 @@ fn setup(
         AutoExposure {
             min: -16.0,
             max: 16.0,
+            compensation_curve: vec![vec2(-16.0, -4.0), vec2(0.0, -2.0), vec2(16.0, 2.0)],
             ..default()
         },
         CameraMarker,
     ));
 }
 
-fn grab_mouse(
+fn rotate_camera(
     mut windows: Query<&mut Window>,
     mouse: Res<Input<MouseButton>>,
     key: Res<Input<KeyCode>>,
@@ -110,13 +115,8 @@ fn grab_mouse(
     for event in mouse_motion_events.read() {
         if !window.cursor.visible {
             for mut camera_transform in camera.iter_mut() {
-
                 camera_transform.rotate(Quat::from_rotation_y(-event.delta.x * 0.005));
                 camera_transform.rotate_local(Quat::from_rotation_x(-event.delta.y * 0.005));
-
-
-                //camera_transform.rotate_local(rotation)
-
             }
         }
     }

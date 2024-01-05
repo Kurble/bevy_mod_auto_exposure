@@ -108,10 +108,14 @@ impl Node for AutoExposureNode {
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: resources.histogram.as_entire_binding(),
+                    resource: BindingResource::TextureView(&auto_exposure.compensation_curve),
                 },
                 BindGroupEntry {
                     binding: 4,
+                    resource: resources.histogram.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 5,
                     resource: auto_exposure.state.as_entire_binding(),
                 },
             ],
