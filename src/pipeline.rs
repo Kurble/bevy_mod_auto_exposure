@@ -8,7 +8,7 @@ use bevy::{
 #[derive(Resource)]
 pub struct AutoExposurePipeline {
     pub histogram_layout: BindGroupLayout,
-    pub histogram_shader: Option<Handle<Shader>>,
+    pub histogram_shader: Handle<Shader>,
 }
 
 #[derive(Component)]
@@ -109,9 +109,8 @@ impl FromWorld for AutoExposurePipeline {
                     },
                 ],
             }),
-            histogram_shader: Some(
-                asset_server.load("embedded://bevy_mod_auto_exposure/auto_exposure.wgsl"),
-            ),
+            histogram_shader: asset_server
+                .load("embedded://bevy_mod_auto_exposure/auto_exposure.wgsl"),
         }
     }
 }
@@ -123,7 +122,7 @@ impl SpecializedComputePipeline for AutoExposurePipeline {
         ComputePipelineDescriptor {
             label: Some("luminance compute pipeline".into()),
             layout: vec![self.histogram_layout.clone()],
-            shader: self.histogram_shader.clone().unwrap(),
+            shader: self.histogram_shader.clone(),
             shader_defs: vec![],
             entry_point: match pass {
                 Pass::Histogram => "computeHistogram".into(),
