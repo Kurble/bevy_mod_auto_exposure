@@ -18,16 +18,16 @@ Setting up auto exposure is easy:
 use bevy::prelude::*;
 use bevy_mod_auto_exposure::{AutoExposurePlugin, AutoExposure};
 
-pub fn main() {
-    App::build()
+fn main() {
+    App::new()
         .add_plugins(DefaultPlugins)
         // Add the plugin.
-        .add_plugin(AutoExposurePlugin)
-        .add_startup_system(setup.system())
+        .add_plugins(AutoExposurePlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
-pub fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
             camera: Camera {

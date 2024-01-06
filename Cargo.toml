@@ -5,7 +5,7 @@ edition = "2021"
 categories = ["game-engines", "graphics", "rendering"]
 description = "An auto exposure plugin for Bevy."
 repository = "https://github.com/Kurble/bevy_mod_auto_exposure/"
-keywords = ["gamedev", "graphics", "bevy", "auto-exposure", "exposure", "hdr"]
+keywords = ["gamedev", "graphics", "bevy", "exposure", "hdr"]
 license = "MIT OR Apache-2.0"
 
 [dependencies]
