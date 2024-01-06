@@ -27,8 +27,10 @@ use crate::node::AutoExposureNode;
 mod node;
 mod pipeline;
 
+/// Plugin for the auto exposure feature.
 pub struct AutoExposurePlugin;
 
+/// Component that enables auto exposure for a camera.
 #[derive(Component, Clone, Reflect)]
 #[reflect(Component)]
 pub struct AutoExposure {
