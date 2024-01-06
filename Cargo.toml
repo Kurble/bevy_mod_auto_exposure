@@ -2,7 +2,11 @@
 name = "bevy_mod_auto_exposure"
 version = "0.1.0"
 edition = "2021"
+categories = ["game-engines", "graphics", "rendering"]
+description = "An auto exposure plugin for Bevy."
+repository = "https://github.com/Kurble/bevy_mod_auto_exposure/"
+keywords = ["gamedev", "graphics", "bevy", "auto-exposure", "exposure", "hdr"]
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 bevy = "0.12.1"
-half = "2"
