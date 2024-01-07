@@ -57,7 +57,7 @@ fn setup(mut commands: Commands) {
 
 I intend to track the latest releases of Bevy.
 
-|  bevy   | bevy_mod_inverse_kinematics |
+|  bevy   | bevy_mod_auto_exposure      |
 | ------- | --------------------------- |
 |  0.12.1 | 0.1                         |
 
