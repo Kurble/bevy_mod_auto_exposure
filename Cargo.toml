@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mod_auto_exposure"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 categories = ["game-engines", "graphics", "rendering"]
 description = "An auto exposure plugin for Bevy."
