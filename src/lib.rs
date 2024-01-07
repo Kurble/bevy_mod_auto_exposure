@@ -1,5 +1,5 @@
 use bevy::{
-    asset::embedded_asset,
+    asset::load_internal_asset,
     core_pipeline::core_3d::{
         graph::node::{END_MAIN_PASS, TONEMAPPING},
         CORE_3D,
@@ -22,7 +22,7 @@ use bevy::{
 };
 use pipeline::{AutoExposureParams, AutoExposurePipeline, Pass, ViewAutoExposurePipeline};
 
-use crate::node::AutoExposureNode;
+use crate::{node::AutoExposureNode, pipeline::METERING_SHADER_HANDLE};
 
 mod node;
 mod pipeline;
@@ -110,7 +110,12 @@ impl ExtractComponent for AutoExposure {
 
 impl Plugin for AutoExposurePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "auto_exposure.wgsl");
+        load_internal_asset!(
+            app,
+            METERING_SHADER_HANDLE,
+            "auto_exposure.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_type::<AutoExposure>();
         app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());

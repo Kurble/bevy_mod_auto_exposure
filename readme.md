@@ -67,8 +67,6 @@ I intend to track the latest releases of Bevy.
 cargo run --example auto_exposure
 ```
 
-Note that the example doesn't currently work because of [this issue](https://github.com/bevyengine/bevy/issues/10377)
-
 ## Licensing
 
 This project is dual-licensed under either

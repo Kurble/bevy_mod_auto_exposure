@@ -38,10 +38,11 @@ pub enum Pass {
     Average,
 }
 
+pub const METERING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(12987620402995522466);
+
 impl FromWorld for AutoExposurePipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let asset_server = world.resource::<AssetServer>();
 
         Self {
             histogram_layout: render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -109,8 +110,7 @@ impl FromWorld for AutoExposurePipeline {
                     },
                 ],
             }),
-            histogram_shader: asset_server
-                .load("embedded://bevy_mod_auto_exposure/auto_exposure.wgsl"),
+            histogram_shader: METERING_SHADER_HANDLE.clone(),
         }
     }
 }

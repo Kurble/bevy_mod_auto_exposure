@@ -1,5 +1,5 @@
-# Version 0.1.1
-- Modified the path for the shader so it works when used as a dependency
+# Version 0.1.2
+- Use load_internal_asset instead of embedded_asset so the shader works when this crate is used as a dependency
 
 # Version 0.1.0
 - Initial version
