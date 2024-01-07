@@ -110,7 +110,7 @@ impl ExtractComponent for AutoExposure {
 
 impl Plugin for AutoExposurePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "src/", "auto_exposure.wgsl");
+        embedded_asset!(app, "auto_exposure.wgsl");
 
         app.register_type::<AutoExposure>();
         app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());
