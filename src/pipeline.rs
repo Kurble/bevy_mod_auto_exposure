@@ -45,9 +45,9 @@ impl FromWorld for AutoExposurePipeline {
         let render_device = world.resource::<RenderDevice>();
 
         Self {
-            histogram_layout: render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("compute histogram bind group"),
-                entries: &[
+            histogram_layout: render_device.create_bind_group_layout(
+                "compute histogram bind group",
+                &[
                     BindGroupLayoutEntry {
                         binding: 0,
                         visibility: ShaderStages::COMPUTE,
@@ -109,7 +109,7 @@ impl FromWorld for AutoExposurePipeline {
                         count: None,
                     },
                 ],
-            }),
+            ),
             histogram_shader: METERING_SHADER_HANDLE.clone(),
         }
     }

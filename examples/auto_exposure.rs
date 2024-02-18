@@ -1,7 +1,4 @@
-use bevy::{
-    core_pipeline::clear_color::ClearColorConfig, input::mouse::MouseMotion, math::vec2,
-    prelude::*, window::CursorGrabMode,
-};
+use bevy::{input::mouse::MouseMotion, math::vec2, prelude::*, window::CursorGrabMode};
 use bevy_mod_auto_exposure::{AutoExposure, AutoExposurePlugin};
 
 #[derive(Component)]
@@ -21,7 +18,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let ball = meshes.add(shape::UVSphere::default().into());
+    let ball = meshes.add(Sphere::default());
 
     commands.spawn(PbrBundle {
         mesh: ball.clone(),
@@ -44,13 +41,7 @@ fn setup(
     });
 
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            shape::Plane {
-                size: 10.0,
-                subdivisions: 1,
-            }
-            .into(),
-        ),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
         material: materials.add(StandardMaterial {
             base_color: Color::rgb(0.2, 0.8, 0.2),
             ..default()
@@ -76,10 +67,6 @@ fn setup(
                 hdr: true,
                 ..default()
             },
-            camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(Color::rgb(0.1, 0.0, 0.0)),
-                ..default()
-            },
             transform: Transform::from_xyz(0.0, 0.0, 6.0),
             ..Default::default()
         },
@@ -95,8 +82,8 @@ fn setup(
 
 fn rotate_camera(
     mut windows: Query<&mut Window>,
-    mouse: Res<Input<MouseButton>>,
-    key: Res<Input<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    key: Res<ButtonInput<KeyCode>>,
     mut mouse_motion_events: EventReader<MouseMotion>,
     mut camera: Query<&mut Transform, With<CameraMarker>>,
 ) {

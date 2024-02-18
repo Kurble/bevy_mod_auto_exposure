@@ -1,9 +1,6 @@
 use bevy::{
     asset::load_internal_asset,
-    core_pipeline::core_3d::{
-        graph::node::{END_MAIN_PASS, TONEMAPPING},
-        CORE_3D,
-    },
+    core_pipeline::core_3d::graph::{Core3d, Node3d},
     ecs::{query::QueryItem, system::lifetimeless::Read},
     math::vec2,
     prelude::*,
@@ -99,11 +96,11 @@ impl Default for AutoExposure {
 }
 
 impl ExtractComponent for AutoExposure {
-    type Query = Read<Self>;
-    type Filter = With<Camera>;
+    type QueryData = Read<Self>;
+    type QueryFilter = With<Camera>;
     type Out = Self;
 
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
         Some(item.clone())
     }
 }
@@ -135,10 +132,10 @@ impl Plugin for AutoExposurePlugin {
                     queue_view_auto_exposure_pipelines.in_set(RenderSet::Queue),
                 ),
             )
-            .add_render_graph_node::<AutoExposureNode>(CORE_3D, node::AutoExposureNode::NAME)
+            .add_render_graph_node::<AutoExposureNode>(Core3d, node::AutoExposure)
             .add_render_graph_edges(
-                CORE_3D,
-                &[END_MAIN_PASS, node::AutoExposureNode::NAME, TONEMAPPING],
+                Core3d,
+                (Node3d::EndMainPass, node::AutoExposure, Node3d::Tonemapping),
             );
     }
 
@@ -253,7 +250,7 @@ fn prepare_auto_exposure_buffers(
         data[0] = data[1];
 
         let compensation_curve = device
-            .create_texture_with_data(&queue, &compensation_curve_desc, &data)
+            .create_texture_with_data(&queue, &compensation_curve_desc, default(), &data)
             .create_view(&TextureViewDescriptor {
                 label: Some("auto exposure compensation curve view"),
                 ..default()

@@ -19,6 +19,9 @@ use crate::{
     AutoExposureResources,
 };
 
+#[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
+pub struct AutoExposure;
+
 pub struct AutoExposureNode {
     query: QueryState<(
         Read<ViewUniformOffset>,
@@ -26,10 +29,6 @@ pub struct AutoExposureNode {
         Read<ViewAutoExposurePipeline>,
         Read<ExtractedView>,
     )>,
-}
-
-impl AutoExposureNode {
-    pub const NAME: &'static str = "auto_exposure";
 }
 
 impl FromWorld for AutoExposureNode {
@@ -126,6 +125,7 @@ impl Node for AutoExposureNode {
                 .command_encoder()
                 .begin_compute_pass(&ComputePassDescriptor {
                     label: Some("auto_exposure_pass"),
+                    timestamp_writes: None,
                 });
 
         compute_pass.set_bind_group(0, &compute_bind_group, &[]);
