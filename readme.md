@@ -59,6 +59,7 @@ I intend to track the latest releases of Bevy.
 
 |  bevy   | bevy_mod_auto_exposure      |
 | ------- | --------------------------- |
+|  0.13   | 0.2                         |
 |  0.12.1 | 0.1                         |
 
 ## Examples
