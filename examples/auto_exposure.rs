@@ -52,7 +52,7 @@ fn setup(
 
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 9000000.0,
+            intensity: 900000.0,
             range: 100.,
             shadows_enabled: true,
             ..default()
@@ -73,7 +73,7 @@ fn setup(
         AutoExposure {
             min: -16.0,
             max: 16.0,
-            compensation_curve: vec![vec2(-16.0, -4.0), vec2(0.0, -2.0), vec2(16.0, 2.0)],
+            compensation_curve: vec![vec2(-16.0, -4.0), vec2(0.0, -2.0), vec2(16.0, 0.0)],
             ..default()
         },
         CameraMarker,
